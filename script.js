@@ -7,6 +7,7 @@ const INGAME_OTHER_PLAYER_TURN = 1;
 const INGAME_MY_TURN = 2;
 const INGAME_STARTING_MY_TURN = 3;
 const INGAME_STARTING_OTHER_PLAYER_TURN = 4;
+const GAME_ALREADY_STARTED = 5;
 var state = NOT_CONNECTED;
 
 var connectedPlayers = 0;
@@ -19,6 +20,7 @@ var updateUI = function ( ) {
    $("body").toggleClass("blueTeam", team == BLUE_TEAM );
 
    if ( state == NOT_CONNECTED ) {
+      $("#notConnected").show();
    }
 
    if ( state == WAITING_FOR_PLAYERS ) {
@@ -58,7 +60,7 @@ var updateUI = function ( ) {
       $("#otherTurn #timer").text(Math.floor(time / 100) / 10);
       $("#otherTurn #score #red").text(score[RED_TEAM]);
       $("#otherTurn #score #blue").text(score[BLUE_TEAM]);
-      $("#startingOtherTurn #heading").text ( "Turno di " + nameTurn + " (" + (teamTurn == RED_TEAM ? "squadra rossa" : "squadra blu") + ")" );
+      $("#otherTurn #heading").text ( "Turno di " + nameTurn + " (" + (teamTurn == RED_TEAM ? "squadra rossa" : "squadra blu") + ")" );
 
       for ( let i = 1; i < card.length; ++i )
          $("#otherTurn #tabooWord" + i).text(card[i]);
@@ -105,7 +107,7 @@ socket.on ( "time", function(msg) { time = msg; updateUI(); } );
 socket.on ( "card", function(msg) { card = msg; updateUI(); } );
 socket.on ( "score", function(msg) { score = msg; updateUI(); } );
 socket.on ( "skips", function(msg) { skips = msg; updateUI(); } );
-socket.on ( "disconnect", function() { state = NOT_CONNECTED; } );
+socket.on ( "disconnect", function() { state = NOT_CONNECTED; updateUI(); } );
 
 // HTML page logic /////////////////////////////////////////////////////////////
 
@@ -137,5 +139,8 @@ var setup = function ( ) {
       socket.emit ( "name", localStorage.playerName );
    } );
    $("#playerName").val(localStorage.playerName);
-   socket.emit ( "name", localStorage.playerName );
+
+   socket.on ( "connect", function() {
+      socket.emit ( "name", localStorage.playerName );
+   } );
 };

@@ -2,23 +2,19 @@
 
 // Game deck (italian)
 const deck_it = [
-   [ "rimmel", "trucco", "ciglia", "cosmetico", "allungare", "De Gregori" ],
-   [ "apnea", "palombaro", "bombole", "immersione", "respirare", "sommozzatore" ],
+   [ "albicocca", "nocciolo", "arancione", "pianta", "susina", "frutto" ],
    [ "antracite", "nero", "colore", "carbone", "fossile", "grigio" ],
+   [ "apnea", "palombaro", "bombole", "immersione", "respirare", "sommozzatore" ],
    [ "apice", "cima", "punta", "vertice", "culmine", "massimo" ],
-   [ "arcipelgo", "Antille", "isole", "gruppo", "mare", "Eolie" ],
-   [ "arguto", "avveduto", "fine", "ingegnoso", "sottile", "osservazione" ],
-   [ "scoop", "notizia", "giornale", "rivista", "colpo", "sensazionale" ],
-   [ "argilla", "roccia", "porosa", "piedi", "creta", "ceramica" ],
    [ "appello", "scuola", "presente", "assente", "corte", "esame" ],
    [ "appartamento", "casa", "stanza", "affitto", "abitazione", "acquistare" ],
-   [ "arachide", "nocciolina", "americana", "superpippo", "tostato", "olio" ],
    [ "aquila", "uccello", "rapace", "intelligente", "vista", "condor" ],
-   [ "semolino", "brodo", "minestra", "farina", "riso", "neonato" ],
+   [ "arachide", "nocciolina", "americana", "superpippo", "tostato", "olio" ],
+   [ "arcipelago", "Antille", "isole", "gruppo", "mare", "Eolie" ],
+   [ "argilla", "roccia", "porosa", "piedi", "creta", "ceramica" ],
+   [ "arguto", "avveduto", "fine", "ingegnoso", "sottile", "osservazione" ],
    [ "arnese", "attrezzo", "strumento", "lavoro", "mestiere", "utensile" ],
    [ "arrotino", "affilare", "mestiere", "lama", "coltello", "forbice" ],
-   [ "semaforo", "fermarsi", "verde", "rosso", "arancione", "incrocio" ],
-   [ "soggiorno", "viaggio", "permanenza", "salone", "azienda", "obbligato" ],
    [ "asciugamano", "tela", "spugna", "acqua", "bagno", "accappatoio" ],
    [ "assieme", "con", "stare", "riunire", "gruppo", "tutti" ],
    [ "assai", "tanto", "abbastanza", "te voglio bene", "molto", "quantità" ],
@@ -27,8 +23,18 @@ const deck_it = [
    [ "auge", "essere in", "apice", "culmine", "successo", "fama" ],
    [ "audience", "televisione", "ascolti", "Auditel", "share", "spettatori" ],
    [ "aumentare", "crescere", "tasse", "incrementare", "maggiore", "quantità" ],
+   [ "australiano", "continente", "abitante", "Canguro", "isola", "Sidney" ],
+   [ "calcio", "partita", "palla", "finale", "mondiali", "squadra" ]
+   [ "cristallo", "vetro", "bicchieri", "gemma", "quarzo", "diamante" ],
+   [ "divano", "salotto", "poltrona", "letto", "cuscino", "pisolino" ],
+   [ "fiore", "petalo", "profumo", "farfalla", "pianta", "colorato" ],
+   [ "giornale", "gazzetta", "giorno", "leggere", "prima pagina", "giornalista" ],
+   [ "rimmel", "trucco", "ciglia", "cosmetico", "allungare", "De Gregori" ],
    [ "Romeo", "gigli", "innamorato", "Giulietta", "Shakespeare", "Verona" ],
-   [ "australiano", "continente", "abitante", "Canguro", "isola", "Sidney" ]
+   [ "scoop", "notizia", "giornale", "rivista", "colpo", "sensazionale" ],
+   [ "semaforo", "fermarsi", "verde", "rosso", "arancione", "incrocio" ],
+   [ "semolino", "brodo", "minestra", "farina", "riso", "neonato" ],
+   [ "soggiorno", "viaggio", "permanenza", "salone", "azienda", "obbligato" ],
 ];
 
 // Game logic //////////////////////////////////////////////////////////////////
@@ -36,13 +42,14 @@ const deck_it = [
 // Cards are represented by means of arrays of words
 // The first word is the one to be guessed, the following ones are the taboo words
 
-// Game state
+// Game state (mostly for client)
 const NOT_CONNECTED = -1;
 const WAITING_FOR_PLAYERS = 0;
 const INGAME_OTHER_PLAYER_TURN = 1;
 const INGAME_MY_TURN = 2;
 const INGAME_STARTING_MY_TURN = 3;
 const INGAME_STARTING_OTHER_PLAYER_TURN = 4;
+const GAME_ALREADY_STARTED = 5;
 var state = WAITING_FOR_PLAYERS;
 
 // Teams
@@ -186,6 +193,8 @@ var Match = function ( ) {
       io.emit ( "ready", false );
       io.emit ( "team", undefined );
       io.emit ( "state", WAITING_FOR_PLAYERS );
+
+      state = WAITING_FOR_PLAYERS;
    }
 
    // Start the match
@@ -198,6 +207,8 @@ var Match = function ( ) {
          clients[i].team = i % 2;
          clients[i].emit ( "team", clients[i].team );
       }
+
+      state = GAME_ALREADY_STARTED;
 
       // Resets game object
       this.preStartTurn();
@@ -236,16 +247,26 @@ io.on('connection', function(socket) {
    socket.team = undefined;
    socket.name = undefined;
 
+   // If the game has already started, assign the player to the appropriate team
+   // and force him to be ready
+   if ( state == GAME_ALREADY_STARTED ) {
+      socket.team = (clients.length - 1) % 2;
+      socket.ready = true;
+   }
+
    // Send room state and misc info
    socket.emit ( 'id', socket.id );
    socket.emit ( 'state', state );
-   socket.emit ( 'ready', false );
-   socket.emit ( 'team', undefined );
+   socket.emit ( 'ready', socket.ready );
+   socket.emit ( 'team', socket.team );
    io.emit ( 'connectedPlayers', clients.length );
    io.emit ( 'readyCount', readyCount );
 
    // Disconnection event
    socket.on ( 'disconnect', function() {
+      if ( state == GAME_ALREADY_STARTED && this.id == clients[match.turn].id )
+         match.endTurn();
+
       // Remove client from list
       for (let i = 0; i < clients.length; ++i) {
          if ( clients[i].id == this.id ) {
@@ -254,7 +275,8 @@ io.on('connection', function(socket) {
          }
       }
 
-      if ( this.ready ) readyCount--;
+      if ( this.ready )
+         readyCount--;
 
       io.emit ( 'connectedPlayers', clients.length );
       console.log("[SRVR] client " + this.id + " disconnected");
@@ -322,6 +344,7 @@ io.on('connection', function(socket) {
    // Set name
    socket.on ( 'name', function(msg) {
       this.name = msg;
+      console.log ( "[SRVR] client " + this.id + " name set to " + this.name );
    } );
 });
 

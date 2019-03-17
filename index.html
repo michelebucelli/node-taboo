@@ -114,6 +114,7 @@
          #score #red { color: #ff2100; }
          #score #blue { color: #4150f4; }
 
+         #notConnected #heading,
          #startingMyTurn #heading,
          #startingOtherTurn #heading,
          #myTurn #heading,
@@ -148,8 +149,12 @@
 
    <body onload="setup()">
       <div id="wrapper" class="centerHV">
+         <div id="notConnected" class="state">
+            <div id="heading">Server non disponibile</div>
+         </div>
+
          <div id="waiting" class="state">
-            <div id="heading">Aspettando i giocatori...</div>
+            <div id="heading">Aspettando i giocatori</div>
             <div id="connectedPlayers">giocatori connessi: <span class="connectedPlayersCounter">0</span></div>
 
             <input type="text" id="playerName" placeholder="nome giocatore"></input>
