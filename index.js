@@ -57,7 +57,7 @@ const BLUE_TEAM = 0;
 const RED_TEAM = 1;
 
 // Game parameters
-var game_maxTime = 10000;
+var game_maxTime = 60000;
 var game_maxSkip = 3;
 
 // Match class. Contains all information pertaining to the current game
