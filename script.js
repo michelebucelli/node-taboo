@@ -70,7 +70,7 @@ var updateUI = function ( ) {
 // Teams
 const BLUE_TEAM = 0;
 const RED_TEAM = 1;
-var team = undefined;
+var team = RED_TEAM;
 var teamTurn = undefined;
 var nameTurn = "";
 
@@ -100,10 +100,9 @@ socket.on ( "state", function (msg) { state = msg; updateUI(); } );
 socket.on ( "connectedPlayers", function(msg) { connectedPlayers = msg; updateUI(); } );
 socket.on ( "ready", function(msg) { ready = msg; updateUI(); } );
 socket.on ( "readyCount", function(msg) { readyCount = msg; updateUI(); } );
-socket.on ( "team", function(msg) { team = msg; updateUI(); } );
+socket.on ( "time", function(msg) { time = msg; updateUI(); } );
 socket.on ( "teamTurn", function(msg) { teamTurn = msg; updateUI(); } );
 socket.on ( "nameTurn", function(msg) { nameTurn = msg; updateUI(); } );
-socket.on ( "time", function(msg) { time = msg; updateUI(); } );
 socket.on ( "card", function(msg) { card = msg; updateUI(); } );
 socket.on ( "score", function(msg) { score = msg; updateUI(); } );
 socket.on ( "skips", function(msg) { skips = msg; updateUI(); } );
@@ -140,7 +139,16 @@ var setup = function ( ) {
    } );
    $("#playerName").val(localStorage.playerName);
 
+   $("#teamChooser").on("click", function() {
+      team = 1 - team;
+      $("#teamChooserSelector").toggleClass("red", team == RED_TEAM);
+      $("#teamChooserSelector").toggleClass("blue", team == BLUE_TEAM);
+      socket.emit("team", team);
+      updateUI();
+   } );
+
    socket.on ( "connect", function() {
       socket.emit ( "name", localStorage.playerName );
+      socket.emit ( "team", team );
    } );
 };

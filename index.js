@@ -57,13 +57,15 @@ const BLUE_TEAM = 0;
 const RED_TEAM = 1;
 
 // Game parameters
-var game_maxTime = 30000;
+var game_maxTime = 10000;
 var game_maxSkip = 3;
 
 // Match class. Contains all information pertaining to the current game
 var Match = function ( ) {
-   // Index of the client whose turn is the current
-   this.turn = 0;
+   // Current player
+   this.curTeam = BLUE_TEAM;
+   this.turnTeamPlayer = [-1, -1];
+   this.player = undefined;
 
    // Timer [msec]
    this.time = 0;
@@ -110,19 +112,30 @@ var Match = function ( ) {
    // Pre-start: the player whose turn is about to start gets notified; we wait for him to
    // actually start
    this.preStartTurn = function ( ) {
-      console.log ( "[GAME] client " + this.turn + " turn is about to start" );
+      // Choose the player
+      do {
+         this.curTeam = 1 - this.curTeam;
+      } while ( teams[this.curTeam].length == 0 );
+
+      this.turnTeamPlayer[this.curTeam]++;
+      if ( this.turnTeamPlayer[this.curTeam] >= teams[this.curTeam].length )
+         this.turnTeamPlayer[this.curTeam] = 0;
+
+      this.player = teams[this.curTeam][this.turnTeamPlayer[this.curTeam]];
+
+      console.log ( "[GAME] client " + this.player.info() + " turn is about to start" );
 
       // Communicate states to clients
-      io.emit ( "teamTurn", clients[this.turn].team );
-      io.emit ( "nameTurn", clients[this.turn].name );
+      io.emit ( "teamTurn", this.player.team );
+      io.emit ( "nameTurn", this.player.name );
       io.emit ( "score", this.score );
       clients[this.turn].emit ( "state", INGAME_STARTING_MY_TURN );
 
       this.skips = this.maxSkips;
-      clients[this.turn].emit ( "skips", this.skips );
+      this.player.emit ( "skips", this.skips );
 
       for ( let i = 0; i < clients.length; ++i )
-         if ( i != this.turn )
+         if ( clients[i].id != this.player.id )
             clients[i].emit ( "state", INGAME_STARTING_OTHER_PLAYER_TURN );
    }
 
@@ -130,12 +143,12 @@ var Match = function ( ) {
    this.startTurn = function ( ) {
       this.time = this.maxTime;
 
-      console.log ( "[GAME] client " + this.turn + " turn starts now (team " + clients[this.turn].team + ")" );
+      console.log ( "[GAME] client " + this.player.info() + " turn starts now" );
 
       // Communicate states to clients
-      clients[this.turn].emit ( "state", INGAME_MY_TURN );
+      this.player.emit ( "state", INGAME_MY_TURN );
       for ( let i = 0; i < clients.length; ++i )
-         if ( i != this.turn )
+         if ( clients[i].id != this.player.id )
             clients[i].emit ( "state", INGAME_OTHER_PLAYER_TURN );
 
       this.drawCard();
@@ -150,24 +163,21 @@ var Match = function ( ) {
    // End of turn
    this.endTurn = function ( ) {
       clearInterval ( this.timerHandler );
-      console.log ( "[GAME] client " + this.turn + " turn ends" );
-
-      this.turn++;
-      if ( this.turn >= clients.length ) this.turn = 0;
+      console.log ( "[GAME] client " + this.player.info() + " turn ends" );
 
       this.preStartTurn();
    }
 
    // Correct answer
    this.correct = function ( ) {
-      this.score[clients[this.turn].team] += 1;
+      this.score[this.player.team] += 1;
       io.emit ( "score", this.score );
       this.drawCard();
    }
 
    // Taboo word
    this.taboo = function ( ) {
-      this.score[clients[this.turn].team] -= 1;
+      this.score[this.player.team] -= 1;
       io.emit ( "score", this.score );
       this.drawCard();
    }
@@ -178,7 +188,7 @@ var Match = function ( ) {
 
       this.drawCard();
       this.skips--;
-      clients[this.turn].emit ( "skips", this.skips );
+      this.player.emit ( "skips", this.skips );
    }
 
    // Reset the game
@@ -187,11 +197,7 @@ var Match = function ( ) {
       this.score = [0, 0];
       clearInterval ( this.timerHandle );
 
-      for ( let i = 0; i < clients.length; ++i )
-         clients[i].team = undefined;
-
       io.emit ( "ready", false );
-      io.emit ( "team", undefined );
       io.emit ( "state", WAITING_FOR_PLAYERS );
 
       state = WAITING_FOR_PLAYERS;
@@ -201,12 +207,6 @@ var Match = function ( ) {
    this.startMatch = function () {
       // Reset game object
       this.reset();
-
-      // Assigns clients to teams
-      for (let i = 0; i < clients.length; ++i ) {
-         clients[i].team = i % 2;
-         clients[i].emit ( "team", clients[i].team );
-      }
 
       state = GAME_ALREADY_STARTED;
 
@@ -224,6 +224,7 @@ var http = require('http').Server(app);
 var io = require('socket.io')(http);
 
 var clients = [];
+var teams = [ [], [] ];
 var lastId = 0;
 var readyCount = 0;
 
@@ -231,6 +232,15 @@ var readyCount = 0;
 app.get('/',           function(req, res){ res.sendFile(__dirname + '/index.html'); });
 app.get('/index.html', function(req, res){ res.sendFile(__dirname + '/index.html'); });
 app.get('/script.js',  function(req, res){ res.sendFile(__dirname + '/script.js'); });
+
+// Update teams
+var updateTeams = function () {
+   teams[0].splice(0, teams[0].length);
+   teams[1].splice(0, teams[1].length);
+
+   for ( var i = 0; i < clients.length; ++i )
+      teams[clients[i].team].push(clients[i]);
+};
 
 // Handle player connections
 io.on('connection', function(socket) {
@@ -247,24 +257,19 @@ io.on('connection', function(socket) {
    socket.team = undefined;
    socket.name = undefined;
 
-   // If the game has already started, assign the player to the appropriate team
-   // and force him to be ready
-   if ( state == GAME_ALREADY_STARTED ) {
-      socket.team = (clients.length - 1) % 2;
-      socket.ready = true;
-   }
-
    // Send room state and misc info
    socket.emit ( 'id', socket.id );
    socket.emit ( 'state', state );
    socket.emit ( 'ready', socket.ready );
-   socket.emit ( 'team', socket.team );
    io.emit ( 'connectedPlayers', clients.length );
    io.emit ( 'readyCount', readyCount );
 
+   // Info string
+   socket.info = function() { return this.name + "#" + this.id; }
+
    // Disconnection event
    socket.on ( 'disconnect', function() {
-      if ( state == GAME_ALREADY_STARTED && this.id == clients[match.turn].id )
+      if ( state == GAME_ALREADY_STARTED && this.id == match.player.id )
          match.endTurn();
 
       // Remove client from list
@@ -279,7 +284,7 @@ io.on('connection', function(socket) {
          readyCount--;
 
       io.emit ( 'connectedPlayers', clients.length );
-      console.log("[SRVR] client " + this.id + " disconnected");
+      console.log("[SRVR] client " + this.info() + " disconnected");
 
       if ( clients.length == 0 ) {
          console.log("[SRVR] no players left, resetting");
@@ -294,11 +299,11 @@ io.on('connection', function(socket) {
 
       if ( this.ready ) {
          readyCount++;
-         console.log("[SRVR] client " + this.id + " is ready");
+         console.log("[SRVR] client " + this.info() + " is ready");
       }
       else {
          readyCount--;
-         console.log("[SRVR] client " + this.id + " is no longer ready");
+         console.log("[SRVR] client " + this.info() + " is no longer ready");
       }
 
       io.emit ( "readyCount", readyCount );
@@ -315,28 +320,28 @@ io.on('connection', function(socket) {
 
    // Start turn event
    socket.on ( 'startTurn', function() {
-      if ( this.id == clients[match.turn].id ) {
+      if ( this.id == match.player.id ) {
          match.startTurn();
       }
    } );
 
    // Correct answer
    socket.on ( 'correct', function() {
-      if ( this.id == clients[match.turn].id ) {
+      if ( this.id == match.player.id ) {
          match.correct();
       }
    } );
 
    // Taboo word
    socket.on ( 'taboo', function() {
-      if ( this.id == clients[match.turn].id ) {
+      if ( this.id == match.player.id ) {
          match.taboo();
       }
    } );
 
    // Skip
    socket.on ( 'skip', function() {
-      if ( this.id == clients[match.turn].id ) {
+      if ( this.id == match.player.id ) {
          match.skipCard();
       }
    } );
@@ -344,7 +349,14 @@ io.on('connection', function(socket) {
    // Set name
    socket.on ( 'name', function(msg) {
       this.name = msg;
-      console.log ( "[SRVR] client " + this.id + " name set to " + this.name );
+      console.log ( "[SRVR] client " + this.info() + " name set to " + this.name );
+   } );
+
+   // Set team
+   socket.on ( 'team', function(msg) {
+      this.team = msg;
+      updateTeams();
+      console.log ( "[SRVR] client " + this.info() + " team set to " + this.team );
    } );
 });
 
