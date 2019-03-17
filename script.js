@@ -38,7 +38,7 @@ var updateUI = function ( ) {
       $("#startingOtherTurn").show();
       $("#startingOtherTurn #score #red").text(score[RED_TEAM]);
       $("#startingOtherTurn #score #blue").text(score[BLUE_TEAM]);
-      $("#startingOtherTurn #heading").text ( teamTurn == RED_TEAM ? "Turno squadra rossa" : "Turno squadra blu" );
+      $("#startingOtherTurn #heading").text ( "Turno di " + nameTurn + " (" + (teamTurn == RED_TEAM ? "squadra rossa" : "squadra blu") + ")" );
    }
 
    if ( state == INGAME_MY_TURN ) {
@@ -58,7 +58,7 @@ var updateUI = function ( ) {
       $("#otherTurn #timer").text(Math.floor(time / 100) / 10);
       $("#otherTurn #score #red").text(score[RED_TEAM]);
       $("#otherTurn #score #blue").text(score[BLUE_TEAM]);
-      $("#otherTurn #heading").text ( teamTurn == RED_TEAM ? "Turno squadra rossa" : "Turno squadra blu" );
+      $("#startingOtherTurn #heading").text ( "Turno di " + nameTurn + " (" + (teamTurn == RED_TEAM ? "squadra rossa" : "squadra blu") + ")" );
 
       for ( let i = 1; i < card.length; ++i )
          $("#otherTurn #tabooWord" + i).text(card[i]);
@@ -70,6 +70,7 @@ const BLUE_TEAM = 0;
 const RED_TEAM = 1;
 var team = undefined;
 var teamTurn = undefined;
+var nameTurn = "";
 
 // Scoring
 var score = [ 0, 0 ];
@@ -99,6 +100,7 @@ socket.on ( "ready", function(msg) { ready = msg; updateUI(); } );
 socket.on ( "readyCount", function(msg) { readyCount = msg; updateUI(); } );
 socket.on ( "team", function(msg) { team = msg; updateUI(); } );
 socket.on ( "teamTurn", function(msg) { teamTurn = msg; updateUI(); } );
+socket.on ( "nameTurn", function(msg) { nameTurn = msg; updateUI(); } );
 socket.on ( "time", function(msg) { time = msg; updateUI(); } );
 socket.on ( "card", function(msg) { card = msg; updateUI(); } );
 socket.on ( "score", function(msg) { score = msg; updateUI(); } );
@@ -132,6 +134,8 @@ var setup = function ( ) {
 
    $("#playerName").on("input", function() {
       localStorage.playerName = $("#playerName").val();
+      socket.emit ( "name", localStorage.playerName );
    } );
    $("#playerName").val(localStorage.playerName);
+   socket.emit ( "name", localStorage.playerName );
 };

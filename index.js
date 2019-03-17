@@ -107,6 +107,7 @@ var Match = function ( ) {
 
       // Communicate states to clients
       io.emit ( "teamTurn", clients[this.turn].team );
+      io.emit ( "nameTurn", clients[this.turn].name );
       io.emit ( "score", this.score );
       clients[this.turn].emit ( "state", INGAME_STARTING_MY_TURN );
 
@@ -233,6 +234,7 @@ io.on('connection', function(socket) {
 
    // Sets client team to undefined
    socket.team = undefined;
+   socket.name = undefined;
 
    // Send room state and misc info
    socket.emit ( 'id', socket.id );
@@ -315,6 +317,11 @@ io.on('connection', function(socket) {
       if ( this.id == clients[match.turn].id ) {
          match.skipCard();
       }
+   } );
+
+   // Set name
+   socket.on ( 'name', function(msg) {
+      this.name = msg;
    } );
 });
 
