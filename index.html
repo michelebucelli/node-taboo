@@ -1,0 +1,222 @@
+<!DOCTYPE HTML>
+
+<html>
+   <head>
+      <title>Taboo!</title>
+
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+
+      <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+      <link href="https://fonts.googleapis.com/css?family=Lilita+One&amp;subset=latin-ext" rel="stylesheet">
+
+      <style>
+         body {
+            background-color: #ffe377;
+            font-family: 'Lilita One', cursive;
+            font-size: 24px;
+         }
+
+         body.redTeam {
+            background-color:  #ff2100;
+         }
+
+         body.blueTeam {
+            background-color: #4150f4;
+         }
+
+         .centerHV {
+            position: absolute;
+            margin: auto;
+            top: 0; bottom: 0; right: 0; left: 0;
+         }
+
+         .button {
+            display: inline-block;
+            vertical-align: middle;
+            border-radius: 8px;
+            box-shadow: 0px 12px 0 0;
+            margin-bottom: 12px;
+            height: 48px;
+            vertical-align: center;
+            padding: 12px;
+            padding-left: 22px;
+            padding-right: 22px;
+            line-height: 48px;
+
+            border: none;
+            font: inherit;
+            outline: none;
+         }
+
+         .button.pressed {
+            position: relative;
+            top: 12px;
+            box-shadow: 0px 12px 0 0 inset;
+         }
+
+         .button.green {
+            background-color: #10b215;
+            color: #005120;
+         }
+
+         .button.red {
+            background-color: #ff2100;
+            color: #8e0017;
+         }
+
+         .button.blue {
+            background-color: #4150f4;
+            color: #00178e;
+         }
+
+         .button.disabled {
+            background-color: #a0adc1;
+            color: #778084;
+         }
+
+         .state {
+            display: none;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            margin: 0px;
+         }
+
+         #wrapper {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            width: calc(100% - 80px);
+            height: calc(100% - 80px);
+         }
+
+         .buttonWrapper {
+            position: absolute;
+            bottom: 20px;
+            width: calc(100% - 40px);
+         }
+
+         #rightButton, #skipButton, #tabooButton {
+            width: 31%;
+            margin-left: 0%;
+            margin-right: 0%;
+         }
+
+         #timer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+         }
+
+         #myTurn #tabooWords,
+         #otherTurn #tabooWords {
+            position: absolute;
+            top: 40%;
+            width: calc(100% - 40px);
+            text-align: center;
+         }
+
+         #score {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+         }
+         #score #red { color: #ff2100; }
+         #score #blue { color: #4150f4; }
+
+         #startingMyTurn #heading,
+         #startingOtherTurn #heading,
+         #myTurn #heading,
+         #otherTurn #heading {
+            position:absolute;
+            top: 15%;
+            font-size: 40px;
+            width: calc(100% - 40px);
+            text-align: center;
+         }
+
+         #playerName {
+            border-radius: 5px;
+            border: 2px solid black;
+            font: inherit;
+            text-align: center;
+            position: absolute;
+            top: 50%;
+            width: 200px;
+            left: calc(50% - 100px);
+            outline: none;
+         }
+      </style>
+
+      <script
+         src="http://code.jquery.com/jquery-3.3.1.min.js"
+         integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+         crossorigin="anonymous"></script>
+      <script src="/socket.io/socket.io.js"></script>
+      <script src="script.js"></script>
+   </head>
+
+   <body onload="setup()">
+      <div id="wrapper" class="centerHV">
+         <div id="waiting" class="state">
+            <div id="heading">Aspettando i giocatori...</div>
+            <div id="connectedPlayers">giocatori connessi: <span class="connectedPlayersCounter">0</span></div>
+
+            <input type="text" id="playerName" placeholder="nome giocatore"></input>
+
+            <div id="readyButtonWrapper" class="buttonWrapper">
+               <button id="readyButton" class="button green">
+                  pronto (<span class="readyPlayersCounter">0</span>/<span class="connectedPlayersCounter">0</span>)
+               </button>
+            </div>
+         </div>
+
+         <div id="startingMyTurn" class="state">
+            <div id="heading">&#200; il tuo turno!</div>
+            <div id="startTurnButtonWrapper" class="buttonWrapper">
+               <button id="startTurnButton" class="button green">inizia</button>
+            </div>
+            <div id="score"><span id="red"></span>|<span id="blue"></span></div>
+         </div>
+
+         <div id="startingOtherTurn" class="state">
+            <div id="heading"></div>
+            <div id="score"><span id="red"></span>|<span id="blue"></span></div>
+         </div>
+
+         <div id="myTurn" class="state">
+            <div id="timer"></div>
+            <div id="heading"></div>
+            <div id="score"><span id="red"></span>|<span id="blue"></span></div>
+            <div id="tabooWords">
+               <span id="tabooWord1"></span><br>
+               <span id="tabooWord2"></span><br>
+               <span id="tabooWord3"></span><br>
+               <span id="tabooWord4"></span><br>
+               <span id="tabooWord5"></span>
+            </div>
+
+            <div id="myTurnButtonsWrapper" class="buttonWrapper">
+               <button id="rightButton" class="button green"><span class="fas fa-check"></span></button>
+               <button id="skipButton" class="button blue"><span class="fas fa-redo"></span> <span id="skipCount"></span></button>
+               <button id="tabooButton" class="button red"><span class="fas fa-times"></span></button>
+            </div>
+         </div>
+
+         <div id="otherTurn" class="state">
+            <div id="timer"></div>
+            <div id="heading"></div>
+            <div id="score"><span id="red"></span>|<span id="blue"></span></div>
+
+            <div id="tabooWords">
+               <span id="tabooWord1"></span><br>
+               <span id="tabooWord2"></span><br>
+               <span id="tabooWord3"></span><br>
+               <span id="tabooWord4"></span><br>
+               <span id="tabooWord5"></span>
+            </div>
+         </div>
+      </div>
+   </body>
+</html>
