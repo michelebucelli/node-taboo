@@ -102,10 +102,10 @@ var Match = function ( ) {
          this.history.splice(0, this.history.length);
       }
 
-      clients[this.turn].emit ( "card", this.card );
+      this.player.emit ( "card", this.card );
 
       for ( let i = 0; i < clients.length; ++i )
-         if ( clients[i].team != clients[this.turn].team )
+         if ( clients[i].team != this.player.team )
             clients[i].emit ( "card", this.card );
    }
 
@@ -129,7 +129,7 @@ var Match = function ( ) {
       io.emit ( "teamTurn", this.player.team );
       io.emit ( "nameTurn", this.player.name );
       io.emit ( "score", this.score );
-      clients[this.turn].emit ( "state", INGAME_STARTING_MY_TURN );
+      this.player.emit ( "state", INGAME_STARTING_MY_TURN );
 
       this.skips = this.maxSkips;
       this.player.emit ( "skips", this.skips );
@@ -193,7 +193,6 @@ var Match = function ( ) {
 
    // Reset the game
    this.reset = function ( ) {
-      this.turn = 0;
       this.score = [0, 0];
       clearInterval ( this.timerHandle );
 
